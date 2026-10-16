@@ -1,0 +1,306 @@
+<title>Slepá mapa Slovenska</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Source+Sans+3:wght@400;600&display=swap">
+<style>
+/* Layout: one atlas sheet. Prompt band on top, the blank map as the hero, result strip beneath. Map units are kilometres. */
+:root {
+  --paper: #e9ede6;
+  --land: #fbfaf4;
+  --ink: #1c2a31;
+  --muted: #5d6c70;
+  --line: #c9d1c8;
+  --border-ink: #4a5a5e;
+  --river: #7aa9c7;
+  --accent: #1f5ea6;
+  --hit: #2c8550;
+  --miss: #c03f2b;
+  --font-display: "Barlow Condensed", "Arial Narrow", sans-serif-condensed, sans-serif;
+  --font-body: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #121a1d; --land: #1c2629; --ink: #e5ece8; --muted: #94a4a6; --line: #2d3a3d;
+    --border-ink: #a9b8b6; --river: #4b7d9c; --accent: #82b4ef; --hit: #5cc083; --miss: #f07c65;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #121a1d; --land: #1c2629; --ink: #e5ece8; --muted: #94a4a6; --line: #2d3a3d;
+  --border-ink: #a9b8b6; --river: #4b7d9c; --accent: #82b4ef; --hit: #5cc083; --miss: #f07c65;
+  color-scheme: dark;
+}
+html, body { min-height: 100%; }
+body {
+  background: var(--paper); color: var(--ink); font-family: var(--font-body); font-size: 16px; line-height: 1.45;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 16px 32px;
+}
+.sheet { max-width: 1040px; margin: 0 auto; display: grid; gap: 14px; }
+header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 20px; }
+.brand { font-family: var(--font-display); font-weight: 600; font-size: 15px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+select, button { font: inherit; color: var(--ink); }
+select { background: var(--land); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; }
+button { cursor: pointer; border-radius: 6px; border: 1px solid var(--line); background: var(--land); padding: 7px 14px; font-weight: 600; }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--paper); }
+button:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.prompt { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 8px 24px; }
+.ask { min-width: 0; }
+.eyebrow { font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.city { font-family: var(--font-display); font-weight: 700; font-size: clamp(36px, 8vw, 64px); line-height: 1; letter-spacing: .01em; overflow-wrap: anywhere; }
+.pop { color: var(--muted); font-size: 14px; }
+.tally { display: flex; gap: 20px; font-variant-numeric: tabular-nums; }
+.tally div { display: grid; }
+.tally b { font-family: var(--font-display); font-size: 28px; line-height: 1.1; font-weight: 600; }
+.tally span { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+.mapwrap { position: relative; background: var(--paper); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+svg.map { display: block; width: 100%; height: auto; max-width: 100%; cursor: crosshair; touch-action: manipulation; user-select: none; -webkit-user-select: none; }
+.land { fill: var(--land); stroke: var(--border-ink); stroke-width: 1.1; stroke-linejoin: round; }
+.rivers { fill: none; stroke: var(--river); stroke-width: .9; stroke-linecap: round; stroke-linejoin: round; }
+.grat { stroke: var(--line); stroke-width: .5; fill: none; }
+.grat-label { fill: var(--muted); font-size: 6px; font-family: var(--font-body); }
+.past circle { stroke: none; }
+.past .h { fill: var(--hit); opacity: .55; }
+.past .m { fill: var(--miss); opacity: .55; }
+.ring { fill: none; stroke-width: .8; stroke-dasharray: 2 2; }
+.ring.h { stroke: var(--hit); }
+.ring.m { stroke: var(--miss); }
+.truth.h { fill: var(--hit); }
+.truth.m { fill: var(--miss); }
+.guess { fill: var(--accent); stroke: var(--land); stroke-width: .8; }
+.link { stroke: var(--ink); stroke-width: .7; stroke-dasharray: 3 2; opacity: .6; }
+.lbl { font-family: var(--font-display); font-weight: 600; font-size: 11px; fill: var(--ink); paint-order: stroke; stroke: var(--land); stroke-width: 3px; stroke-linejoin: round; }
+.scale text { fill: var(--muted); font-size: 6px; font-family: var(--font-body); }
+.scale line { stroke: var(--muted); stroke-width: .8; }
+.result { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; min-height: 44px; }
+.verdict { min-width: 0; font-size: 17px; }
+.verdict strong { font-weight: 600; }
+.verdict .h { color: var(--hit); }
+.verdict .m { color: var(--miss); }
+.hint { color: var(--muted); font-size: 14px; }
+.final { display: grid; gap: 14px; padding-block: 8px; }
+.final h2 { font-family: var(--font-display); font-weight: 700; font-size: clamp(30px, 6vw, 44px); line-height: 1.05; margin: 0; text-wrap: balance; }
+.final ol { margin: 0; padding-left: 20px; columns: 2 220px; column-gap: 32px; font-variant-numeric: tabular-nums; }
+.final li { break-inside: avoid; padding-block: 2px; }
+.final li span { color: var(--muted); }
+.note { font-size: 13px; color: var(--muted); max-width: 65ch; }
+@media (prefers-reduced-motion: no-preference) {
+  .truth, .ring, .lbl { animation: pop .25s ease-out; transform-box: fill-box; transform-origin: center; }
+  @keyframes pop { from { opacity: 0; transform: scale(.4); } to { opacity: 1; transform: scale(1); } }
+}
+</style>
+
+<div class="sheet">
+  <header>
+    <div class="brand">Slepá mapa Slovenska · mestá nad 10 000 obyv.</div>
+    <div class="controls">
+      <label for="mode" class="hint">Kolo</label>
+      <select id="mode">
+        <option value="all">Všetky mestá</option>
+        <option value="big">Nad 20 000 obyvateľov</option>
+        <option value="quick">Rýchle kolo (10 miest)</option>
+      </select>
+      <button id="restart" type="button">Začať odznova</button>
+    </div>
+  </header>
+
+  <section class="prompt" id="promptBox">
+    <div class="ask">
+      <div class="eyebrow">Nájdi na mape</div>
+      <div class="city" id="city">…</div>
+      <div class="pop" id="pop"></div>
+    </div>
+    <div class="tally">
+      <div><b id="tProgress">0/0</b><span>mesto</span></div>
+      <div><b id="tHits">0</b><span>trafené</span></div>
+      <div><b id="tAvg">–</b><span>priemer km</span></div>
+    </div>
+  </section>
+
+  <div class="mapwrap">
+    <svg class="map" id="map" viewBox="0 0 432 222" role="img" aria-label="Slepá mapa Slovenska">
+      <g id="grat"></g>
+      <path class="land" d="__BORDER__"></path>
+      <path class="rivers" d="__RIVERS__"></path>
+      <g class="past" id="past"></g>
+      <g id="marks"></g>
+      <g class="scale" transform="translate(362 212)">
+        <line x1="0" y1="0" x2="50" y2="0"></line>
+        <line x1="0" y1="-2" x2="0" y2="2"></line>
+        <line x1="50" y1="-2" x2="50" y2="2"></line>
+        <text x="0" y="-4">0</text>
+        <text x="44" y="-4">50 km</text>
+      </g>
+    </svg>
+  </div>
+
+  <section class="result" id="resultBox">
+    <div class="verdict" id="verdict"><span class="hint">Klikni na miesto, kde si myslíš, že mesto leží. Trafa sa počíta do 15 km.</span></div>
+    <button class="primary" id="next" type="button" hidden>Ďalšie mesto</button>
+  </section>
+
+  <section class="final" id="final" hidden></section>
+
+  <p class="note">Polohy miest sú približné stredy obcí, počty obyvateľov zaokrúhlené (sčítanie 2021). Hranica a rieky: Natural Earth. Medzerník alebo Enter = ďalšie mesto.</p>
+</div>
+
+<script>
+// [name, population, lat, lon]
+const CITIES = [
+  ["Bratislava",475000,48.1486,17.1077],["Košice",229000,48.7164,21.2611],["Prešov",85000,48.9984,21.2339],
+  ["Žilina",81000,49.2231,18.7394],["Nitra",78000,48.3069,18.0845],["Banská Bystrica",76000,48.7363,19.1462],
+  ["Trnava",64000,48.3774,17.5872],["Trenčín",54000,48.8945,18.0444],["Martin",53000,49.0665,18.9216],
+  ["Poprad",50000,49.0614,20.2980],["Prievidza",44000,48.7745,18.6275],["Zvolen",41000,48.5762,19.1371],
+  ["Považská Bystrica",39000,49.1215,18.4214],["Michalovce",39000,48.7543,21.9195],["Nové Zámky",38000,47.9858,18.1617],
+  ["Spišská Nová Ves",35000,48.9446,20.5615],["Komárno",33000,47.7631,18.1203],["Levice",32000,48.2157,18.6067],
+  ["Humenné",31000,48.9356,21.9063],["Bardejov",31000,49.2918,21.2727],["Liptovský Mikuláš",30000,49.0832,19.6125],
+  ["Piešťany",27000,48.5918,17.8273],["Ružomberok",26000,49.0748,19.3006],["Lučenec",26000,48.3277,19.6658],
+  ["Topoľčany",25000,48.5590,18.1770],["Čadca",24000,49.4380,18.7899],["Dubnica nad Váhom",24000,48.9584,18.1698],
+  ["Trebišov",23000,48.6295,21.7172],["Dunajská Streda",23000,47.9939,17.6193],["Pezinok",23000,48.2896,17.2669],
+  ["Rimavská Sobota",22000,48.3829,20.0221],["Partizánske",22000,48.6283,18.3780],["Vranov nad Topľou",22000,48.8808,21.6847],
+  ["Šaľa",22000,48.1514,17.8768],["Hlohovec",21000,48.4260,17.8030],["Senec",21000,48.2194,17.4000],
+  ["Brezno",20000,48.8060,19.6386],["Senica",20000,48.6795,17.3669],["Nové Mesto nad Váhom",19000,48.7576,17.8302],
+  ["Snina",19000,48.9881,22.1567],["Dolný Kubín",19000,49.2099,19.2948],["Rožňava",19000,48.6610,20.5317],
+  ["Žiar nad Hronom",19000,48.5916,18.8530],["Bánovce nad Bebravou",19000,48.7188,18.2581],["Púchov",18000,49.1239,18.3256],
+  ["Malacky",18000,48.4362,17.0189],["Handlová",16000,48.7280,18.7604],["Stará Ľubovňa",16000,49.2986,20.6863],
+  ["Kežmarok",16000,49.1360,20.4294],["Sereď",16000,48.2863,17.7347],["Galanta",15000,48.1902,17.7266],
+  ["Skalica",15000,48.8446,17.2271],["Kysucké Nové Mesto",15000,49.3000,18.7858],["Levoča",14000,49.0257,20.5880],
+  ["Detva",14000,48.5573,19.4189],["Šamorín",13000,48.0301,17.3091],["Stupava",13000,48.2740,17.0320],
+  ["Sabinov",12000,49.1031,21.0985],["Revúca",12000,48.6833,20.1170],["Veľký Krtíš",12000,48.2098,19.3483],
+  ["Myjava",12000,48.7537,17.5683],["Zlaté Moravce",11500,48.3856,18.4002],["Bytča",11000,49.2224,18.5583],
+  ["Holíč",11000,48.8110,17.1626],["Moldava nad Bodvou",11000,48.6150,21.0000],["Nová Dubnica",10700,48.9343,18.1462],
+  ["Svidník",10500,49.3060,21.5703],["Kolárovo",10500,47.9149,17.9989]
+];
+
+const TOL = 15; // km
+const K = 111.32, C = Math.cos(48.7 * Math.PI / 180), LON0 = 16.75, LAT0 = 49.68;
+const proj = (lat, lon) => [(lon - LON0) * C * K, (LAT0 - lat) * K];
+const unproj = (x, y) => [LAT0 - y / K, x / (C * K) + LON0];
+function km(lat1, lon1, lat2, lon2) {
+  const r = Math.PI / 180, a = Math.sin((lat2 - lat1) * r / 2) ** 2 +
+    Math.cos(lat1 * r) * Math.cos(lat2 * r) * Math.sin((lon2 - lon1) * r / 2) ** 2;
+  return 12742 * Math.asin(Math.sqrt(a));
+}
+
+const $ = id => document.getElementById(id);
+const NS = "http://www.w3.org/2000/svg";
+const svg = $("map");
+function el(tag, attrs, parent) {
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  parent.appendChild(e); return e;
+}
+
+// faint graticule every 1° lon / 0.5° lat
+(function () {
+  const g = $("grat");
+  for (let lon = 17; lon <= 22; lon++) {
+    const [x1, y1] = proj(49.7, lon), [x2, y2] = proj(47.6, lon);
+    el("line", { class: "grat", x1, y1, x2, y2 }, g);
+    el("text", { class: "grat-label", x: x1 + 1.5, y: 7 }, g).textContent = lon + "° v. d.";
+  }
+  for (let lat = 48; lat <= 49.5; lat += .5) {
+    const [x1, y1] = proj(lat, 16.7), [x2, y2] = proj(lat, 22.7);
+    el("line", { class: "grat", x1, y1, x2, y2 }, g);
+    el("text", { class: "grat-label", x: 422, y: y1 - 1.5, "text-anchor": "end" }, g).textContent = lat.toFixed(1).replace(".", ",") + "° s. š.";
+  }
+})();
+
+let S = null; // game state
+
+function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+function newGame(mode) {
+  let pool = CITIES.map((c, i) => i);
+  if (mode === "big") pool = pool.filter(i => CITIES[i][1] >= 20000);
+  shuffle(pool);
+  if (mode === "quick") pool = pool.slice(0, 10);
+  S = { mode, order: pool, i: 0, results: [], answered: false };
+  render();
+}
+
+const fmt = n => n.toLocaleString("sk-SK");
+function render() {
+  $("mode").value = S.mode;
+  const done = S.i >= S.order.length;
+  const hits = S.results.filter(r => r.d <= TOL).length;
+  const avg = S.results.length ? S.results.reduce((s, r) => s + r.d, 0) / S.results.length : null;
+  $("tProgress").textContent = Math.min(S.i + 1, S.order.length) + "/" + S.order.length;
+  $("tHits").textContent = hits;
+  $("tAvg").textContent = avg == null ? "–" : Math.round(avg);
+
+  const past = $("past"); past.textContent = "";
+  S.results.forEach((r, k) => {
+    if (!done && S.answered && k === S.results.length - 1) return;
+    const c = CITIES[r.c], [x, y] = proj(c[2], c[3]);
+    el("circle", { cx: x, cy: y, r: 2.2, class: r.d <= TOL ? "h" : "m" }, past).appendChild(document.createElementNS(NS, "title")).textContent = c[0] + " · " + Math.round(r.d) + " km";
+  });
+
+  const marks = $("marks"); marks.textContent = "";
+  $("final").hidden = !done;
+  $("promptBox").hidden = done;
+  $("resultBox").hidden = done;
+  if (done) return renderFinal(hits, avg);
+
+  const c = CITIES[S.order[S.i]];
+  $("city").textContent = c[0];
+  $("pop").textContent = "≈ " + fmt(c[1]) + " obyvateľov";
+
+  if (S.answered) {
+    const r = S.results[S.results.length - 1], hit = r.d <= TOL, cls = hit ? "h" : "m";
+    const [tx, ty] = proj(c[2], c[3]);
+    el("circle", { cx: tx, cy: ty, r: TOL, class: "ring " + cls }, marks);
+    el("line", { class: "link", x1: r.x, y1: r.y, x2: tx, y2: ty }, marks);
+    el("circle", { cx: r.x, cy: r.y, r: 2.6, class: "guess" }, marks);
+    el("circle", { cx: tx, cy: ty, r: 3.4, class: "truth " + cls }, marks);
+    const left = tx > 330;
+    el("text", { class: "lbl", x: tx + (left ? -6 : 6), y: ty - 5, "text-anchor": left ? "end" : "start" }, marks).textContent = c[0];
+    $("verdict").innerHTML = hit
+      ? `<strong class="h">Trafené.</strong> Vedľa o ${Math.round(r.d)} km.`
+      : `<strong class="m">Vedľa o ${Math.round(r.d)} km.</strong> Správne miesto je vyznačené na mape.`;
+    $("next").hidden = false;
+    $("next").textContent = S.i + 1 >= S.order.length ? "Zobraziť výsledok" : "Ďalšie mesto";
+  } else {
+    $("verdict").innerHTML = `<span class="hint">Klikni na miesto, kde leží ${c[0]}. Trafa sa počíta do ${TOL} km.</span>`;
+    $("next").hidden = true;
+  }
+}
+
+function renderFinal(hits, avg) {
+  const n = S.order.length, pct = Math.round(hits / n * 100);
+  const worst = [...S.results].sort((a, b) => b.d - a.d).filter(r => r.d > TOL).slice(0, 10);
+  const f = $("final");
+  f.innerHTML = `<div class="eyebrow">Koniec kola</div>
+    <h2>${hits} z ${n} trafených (${pct} %), priemerne ${Math.round(avg)} km vedľa</h2>` +
+    (worst.length ? `<div class="eyebrow">Najväčšie odchýlky, oplatí sa zopakovať</div><ol>${worst.map(r => `<li>${CITIES[r.c][0]} <span>${Math.round(r.d)} km</span></li>`).join("")}</ol>` : `<p>Bez jedinej chyby. Výborne.</p>`) +
+    `<div><button class="primary" id="again" type="button">Hrať znova</button></div>`;
+  $("again").onclick = () => newGame(S.mode);
+}
+
+svg.addEventListener("click", e => {
+  if (!S || S.answered || S.i >= S.order.length) return;
+  const pt = svg.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY;
+  const p = pt.matrixTransform(svg.getScreenCTM().inverse());
+  const [lat, lon] = unproj(p.x, p.y);
+  const ci = S.order[S.i], c = CITIES[ci];
+  S.results.push({ c: ci, d: km(lat, lon, c[2], c[3]), x: p.x, y: p.y });
+  S.answered = true;
+  render();
+});
+function next() { if (!S.answered) return; S.i++; S.answered = false; render(); }
+$("next").onclick = next;
+document.addEventListener("keydown", e => {
+  if ((e.key === "Enter" || e.key === " ") && S && S.answered && e.target.tagName !== "BUTTON" && e.target.tagName !== "SELECT") { e.preventDefault(); next(); }
+});
+$("restart").onclick = () => newGame($("mode").value);
+$("mode").onchange = () => newGame($("mode").value);
+
+function start(data) {
+  if (data && data.S && Array.isArray(data.S.order)) { S = data.S; render(); }
+  else newGame("all");
+}
+window.claude?.hot?.snapshot?.(() => ({ S }));
+window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
+</script>
